@@ -13,34 +13,65 @@ namespace VerticurlPoc.Foundation.NetworkType.Pipeline.RunServiceWorker
         public override void Process(HttpRequestArgs args)
         {
             HttpContext currentHttpContext = HttpContext.Current;
-
+            bool isLiteVersionEnabled = false;
             if (currentHttpContext == null || Context.Database == null)
                 return;
             if (Context.Site.Name.ToLower() == "shell")
                 return;
-
-
-            var networkType = NetworkTypeRetrievalService.RetrieveNetworkType();
-            var slowNetork = Sitecore.Configuration.Settings.GetSetting("SlowNetwork");
-            //var fastNetork = Sitecore.Configuration.Settings.GetSetting("FastNetwork");
-            if (string.IsNullOrEmpty(networkType))
+            var litePageSettingID = Sitecore.Configuration.Settings.GetSetting("LiteVesionSettingItemID");
+            var siteItem = Sitecore.Context.Database.GetItem(litePageSettingID);
+            if(siteItem != null)
             {
-                currentHttpContext.Response.Redirect(currentHttpContext.Request.Url.Scheme + "://" + currentHttpContext.Request.Url.Host + "/redirect.html");
+                //Read the Multilist Field
+                Sitecore.Data.Fields.MultilistField multiselectField = siteItem.Fields["LiteVersionPages"];
+
+                Sitecore.Data.Items.Item[] items = multiselectField.GetItems();
+                //Iterate through each item
+                if (items != null && items.Length > 0)
+                {
+                    foreach (Item lvItem in items)
+                    {
+                        if (lvItem.Fields["Route"].Value == Context.HttpContext.Request.Url.AbsolutePath)
+                        {
+                            isLiteVersionEnabled = true;
+                        }
+                    }
+                }
+                if (isLiteVersionEnabled)
+                {
+                    var networkType = NetworkTypeRetrievalService.RetrieveNetworkType();
+                    var slowNetork = Sitecore.Configuration.Settings.GetSetting("SlowNetwork");
+                    //var fastNetork = Sitecore.Configuration.Settings.GetSetting("FastNetwork");
+                    if (string.IsNullOrEmpty(networkType))
+                    {
+                        currentHttpContext.Response.Redirect(currentHttpContext.Request.Url.Scheme + "://" + currentHttpContext.Request.Url.Host + "/redirect.html");
+                    }
+                    else if (slowNetork.Contains(networkType))
+                    {
+                        SetDevice("SlowNetwork");
+                        return;
+                    }
+                    //else if (fastNetork.Contains(networkType))
+                    //{
+                    //    SetDevice("Defult");
+                    //    return;
+                    //}
+                    else
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    return;
+                }
             }
-            else if(slowNetork.Contains(networkType))
-            {
-                SetDevice("SlowNetwork");
-                return;
-            }
-            //else if (fastNetork.Contains(networkType))
-            //{
-            //    SetDevice("Defult");
-            //    return;
-            //}
             else
             {
                 return;
             }
+            
+            
 
 
         }
